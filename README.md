@@ -10,3 +10,4 @@ credentials_file_path = ~/.aws/credentials
 default_profile = eu-west-1
 
 [profile_account_mapping]
+<ugly_aws_sso_name> = <awesome_config_name>
