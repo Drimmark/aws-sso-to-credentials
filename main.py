@@ -1,15 +1,11 @@
 from configparser import ConfigParser, SectionProxy
 import logging
 
-from utils.config_utils import (
-    get_module_config,
-    read_configuration_files,
-    write_config
-)
+from utils.config_utils import get_module_config, read_configuration_files, write_config
 from utils.credentials_utils import (
     get_profile_name_from_user,
     get_profile_region_from_user,
-    process_credentials_block
+    process_credentials_block,
 )
 
 logging.basicConfig(level=logging.DEBUG)
@@ -20,12 +16,18 @@ def get_confirmation_from_user() -> bool:
     return user_input.lower() in ["y", "yes"]
 
 
-def process_profile(astc_config: ConfigParser, astc_config_extended_path: str, aws_credentials: ConfigParser,
-                    aws_config_extended_path: str, user_credentials: SectionProxy, account_role_name: str):
+def process_profile(
+    astc_config: ConfigParser,
+    astc_config_extended_path: str,
+    aws_credentials: ConfigParser,
+    aws_config_extended_path: str,
+    user_credentials: SectionProxy,
+    account_role_name: str,
+):
     profile_name = astc_config["profile_account_mapping"].get(account_role_name)
     if not profile_name:
         logging.error(f"Account-role [{account_role_name}] not found in astc config file")
-        logging.info(f"Do you want to create the account-role mapping? (y/yes)")
+        logging.info("Do you want to create the account-role mapping? (y/yes)")
         if not get_confirmation_from_user():
             exit()
         profile_name = get_profile_name_from_user(account_role_name)
@@ -35,7 +37,7 @@ def process_profile(astc_config: ConfigParser, astc_config_extended_path: str, a
     logging.info(f"Obtained profile [{profile_name}] from account-role [{account_role_name}]")
     if profile_name not in aws_credentials.sections():
         logging.error(f"Profile [{profile_name}] not found in credentials file")
-        logging.info(f"Do you want to add the profile? (y/yes)")
+        logging.info("Do you want to add the profile? (y/yes)")
         if not get_confirmation_from_user():
             exit()
         aws_credentials[profile_name] = {}
@@ -45,10 +47,14 @@ def process_profile(astc_config: ConfigParser, astc_config_extended_path: str, a
         aws_credentials[profile_name][option] = user_credentials[option]
 
     logging.info(
-        f"Do you want to update default region (current: {aws_credentials[profile_name].get('region', 'None')})? (y/yes)")
+        f"""Do you want to update default region (current: {aws_credentials[profile_name].get('region', 'None')})? (y/yes)"""  # noqa: E501
+    )
     if get_confirmation_from_user():
-        default_profile = aws_credentials[profile_name].get("region") if "region" in aws_credentials[profile_name] \
+        default_profile = (
+            aws_credentials[profile_name].get("region")
+            if "region" in aws_credentials[profile_name]
             else astc_config["aws_config"].get("default_profile", "eu-west-1")
+        )
         profile_region = get_profile_region_from_user(default_profile)
         aws_credentials[profile_name]["region"] = profile_region
 
@@ -57,14 +63,26 @@ def process_profile(astc_config: ConfigParser, astc_config_extended_path: str, a
 
 
 def main(astc_config_path: str, aws_credentials_path: str):
-    (astc_config_file, astc_config_extended_path_file), (aws_credentials_file, aws_config_extended_path_file) =\
-        read_configuration_files(astc_config_path, aws_credentials_path)
-    user_credentials_block, account_role_name_block = process_credentials_block()
+    (astc_config_file, astc_config_extended_path_file), (
+        aws_credentials_file,
+        aws_config_extended_path_file,
+    ) = read_configuration_files(astc_config_path, aws_credentials_path)
 
-    process_profile(
-        astc_config_file, astc_config_extended_path_file, aws_credentials_file, aws_config_extended_path_file,
-        user_credentials_block, account_role_name_block
-    )
+    ask_again = True
+    while ask_again:
+        user_credentials_block, account_role_name_block = process_credentials_block()
+
+        process_profile(
+            astc_config_file,
+            astc_config_extended_path_file,
+            aws_credentials_file,
+            aws_config_extended_path_file,
+            user_credentials_block,
+            account_role_name_block,
+        )
+
+        logging.info("Do you want to introduce new credentials? (y/yes)")
+        ask_again = get_confirmation_from_user()
 
 
 if __name__ == "__main__":
